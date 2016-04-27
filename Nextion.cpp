@@ -53,15 +53,15 @@ void Nextion::buttonToggle(boolean &buttonState, String objName, uint8_t picDefu
   String tempStr = "";
   if (buttonState) {
     tempStr = objName + ".picc="+String(picDefualtId);//Select this picture
-    sendCommand(tempStr.c_str());
+    sendCommand(tempStr);
     tempStr = "ref "+objName;//Refresh component
-    sendCommand(tempStr.c_str());
+    sendCommand(tempStr);
     buttonState = false;
   } else {
     tempStr = objName + ".picc="+String(picSelected);//Select this picture
-    sendCommand(tempStr.c_str());
+    sendCommand(tempStr);
     tempStr = "ref "+objName;//Refresh this component
-    sendCommand(tempStr.c_str());
+    sendCommand(tempStr);
     buttonState = true;
   }
 }//end buttonPressed
@@ -82,7 +82,7 @@ uint8_t Nextion::buttonOnOff(String find_component, String unknown_component, ui
 
 boolean Nextion::setComponentValue(String component, int value){
   String compValue = component +".val=" + value;//Set component value
-  sendCommand(compValue.c_str());
+  sendCommand(compValue);
   boolean acki = ack();
   return acki;
 }//set_component_value
@@ -121,7 +121,7 @@ boolean Nextion::ack(void){
 unsigned int Nextion::getComponentValue(String component){
   String getValue = "get "+ component +".val";//Get componetn value
     unsigned int value = 0;
-  sendCommand(getValue.c_str());
+  sendCommand(getValue);
   uint8_t temp[8] = {0};
   nextion->setTimeout(20);
   if (sizeof(temp) != nextion->readBytes((char *)temp, sizeof(temp))){
@@ -135,7 +135,7 @@ unsigned int Nextion::getComponentValue(String component){
 
 boolean Nextion::setComponentText(String component, String txt){
   String componentText = component + ".txt=\"" + txt + "\"";//Set Component text
-  sendCommand(componentText.c_str());
+  sendCommand(componentText);
   return ack();
 }//end set_component_txt
 
@@ -168,9 +168,9 @@ boolean Nextion::updateProgressBar(int x, int y, int maxWidth, int maxHeight, in
 	}//end if
 	
 	String wipe = "picq " + String(x) + "," + String(y) + "," + String(w1) + "," + String(h1) + "," + String(fullPictureID);
-	sendCommand(wipe.c_str());
+	sendCommand(wipe);
 	wipe = "picq " + String(offset1) + "," + String(offset2) + "," + String(w2) + "," + String(h2) + "," + String(emptyPictureID);
-	sendCommand(wipe.c_str());
+	sendCommand(wipe);
 
 	return ack();
 
@@ -178,7 +178,7 @@ boolean Nextion::updateProgressBar(int x, int y, int maxWidth, int maxHeight, in
 
 String Nextion::getComponentText(String component, uint32_t timeout){
   String tempStr = "get " + component + ".txt";
-  sendCommand(tempStr.c_str());
+  sendCommand(tempStr);
   tempStr = "";
   tempStr = listen(timeout);
   /*unsigned long start = millis();
@@ -203,135 +203,83 @@ String Nextion::getComponentText(String component, uint32_t timeout){
 }//getComponentText
 
 String Nextion::listen(unsigned long timeout){//returns generic
-
-  char _bite;
-  char _end = 0xff;//end of file x3
-  String cmd;
-  int countEnd = 0;
-
-  while(nextion->available()>0){
-	delay(10);
-	if(nextion->available()>0){
-	  _bite = nextion->read();
-	  cmd += _bite;
-	  if(_bite == _end){
-		countEnd++;
-	  }//end if
-	  if(countEnd == 3){
-		break;
-	  }//end if
-	}//end if
-  }//end while
-
- /* if(cmd != ""){
-	for(int o  = 0 ; o < cmd.length(); o++){
-	  Serial.print(cmd[o], HEX);
-	}
-	Serial.println();
-	}//*/
-
+  bool timeoutExpired = false;
+  unsigned long startTime = millis();
   String temp = "";
-  switch (cmd[0]) {
-  case 'e'://0x65   Same than default -.-
-	countEnd = 0;//Revision for not include last space " "
-	for(uint8_t i = 0; i<cmd.length(); i++){
-	  if(cmd[i] == _end){countEnd++;}//end if
-	  temp += String(cmd[i], HEX);//add hexadecimal value
-	  if(countEnd == 3){
-		return temp;
-	  }//end if
-	  temp += " ";//For easy visualization
-	}//end for
-	break;
-  case 'f'://0x66
-	//Serial.print(String(cmd[1], HEX));
-	return String(cmd[1], DEC);
-	break;
-  case 'g'://0x67
-	cmd = String(cmd[2], DEC) + "," + String(cmd[4], DEC) +","+ String(cmd[5], DEC);
-	return cmd;
-	break;
-  case 'h'://0x68
-	cmd = String(cmd[2], DEC) + "," + String(cmd[4], DEC) +","+ String(cmd[5], DEC);
-	cmd = "68 " + cmd;	
-	return cmd;
-	break;
-  case 'p'://0x70
-	cmd = cmd.substring(1, cmd.length()-3);
-	cmd = "70 " + cmd;
-	return cmd;
-	break;
-  default: 
-	//	cmd += String(b, HEX);
-	//if(ff == 3){break;}//end if
-	//cmd += " ";//
-	return cmd;//
-	break;
-  }//end switch	
-  return "";
-}//end listen
-
-/*String Nextion::listen(unsigned long timeout){
-  //TODO separar todos los eventos 0x65 0x66 0x67 0x68
-
-  char _bite;
-  char _end = 0xff;//end of file x3
-  String cmd;
+  unsigned char buff[512];
+  unsigned char *ptr;
+  unsigned char lastChar = 0x00; 
   int countEnd = 0;
-  unsigned long start = millis();
+  int dataLen = 0;
 
-  while(nextion->available()>0){
-	delay(10);
-	if(nextion->available()>0){
-	  _bite = nextion->read();
-	  cmd += String(_bite, HEX);
-	  if(_bite == _end){
-		countEnd++;
-	  }//end if
-	  if(countEnd == 3){
-		break;
-	  }//end if
-	}//end if
-  }//end while
+  // Wait for data available or timeout to expire
+  while (((millis() - startTime) < timeout) && (nextion->available() <= 0)){};
+  if  (nextion->available() <= 0) timeoutExpired = true; // Timeout expired and no data received
 
-  return cmd;
-}//end listen_nextion*/
+  if (!timeoutExpired)
+  {
+    // Process data
+    for(ptr = &buff[0]; nextion->available() > 0; ptr++, dataLen++)
+    {
+      *ptr = (unsigned char)nextion->read();
+      if((*ptr == _endChar) && (lastChar == _endChar)) countEnd++; // +1 EOF
+      else if(*ptr == _endChar) countEnd = 1; // Possible EOF start
+      if(countEnd >= _endQty) break;
+      lastChar = *ptr;
+      delay(10); // Wait for more data to come
+    }
+
+    // Parse data as HEX string
+    for(int i = 0; i < dataLen; i++) 
+    {
+      if(buff[i] < 0x10) temp += "0";     // Append 0 for 2 digits HEX string
+      temp += String(buff[i], HEX);
+      if (i < (dataLen - 1)) temp += " "; // Add separator
+    }
+  }
+  temp.toUpperCase();
+  return temp;
+}
 
 uint8_t Nextion::pageId(void){
   sendCommand("sendme");
-  int a = -1;
   String pagId = listen();
-  //  Serial.print("ID = ");
-  //Serial.print(pagId);
-  //Serial.println("<-");
   if(pagId != ""){
 	return pagId.toInt();
   }
   return -1;
-  
 }//pageId
 
+// sendCommand() method send a user-command with the 3-end bytes (0xFF, 0xFF, 0xFF)
 void Nextion::sendCommand(const char* cmd){
   while (nextion->available()){
-	nextion->read();
+    nextion->read();
   }//end while
   nextion->print(cmd);
-  nextion->write(0xFF);
-  nextion->write(0xFF);
-  nextion->write(0xFF);
+  nextion->write(_endChar);
+  nextion->write(_endChar);
+  nextion->write(_endChar);
 }//end sendCommand
 
+// sendCommand() overload method for String data types
+void Nextion::sendCommand(String cmd){
+  while (nextion->available()){
+    nextion->read();
+  }//end while
+  sendCommand(cmd.c_str());
+}//end sendCommand
+
+// init() method send command "page <pageId>", default is "0" for home (0) page.
 boolean Nextion::init(const char* pageId){
   String page = "page " + String(pageId);//Page
   sendCommand("");
   ack();
-  sendCommand(page.c_str());
+  sendCommand(page);
   delay(100);
   return ack();
 }//end nextion_init
 
 void Nextion::flushSerial(){
-  Serial.flush();
   nextion->flush();
 }//end flush
 
