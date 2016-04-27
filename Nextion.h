@@ -41,6 +41,9 @@ http://crcibernetica.com
 #ifndef __NEXTION_H__
 #define __NEXTION_H__
 
+ #define _endChar (0xFF)
+ #define _endQty  (3)
+
 #include <Arduino.h>
 
 
@@ -88,6 +91,7 @@ class Nextion{
   //  String listenNextionGeneric(unsigned long timeout=100);
 
   void sendCommand(const char* cmd);
+  void sendCommand(String cmd);
 
   uint8_t pageId(void);
 
