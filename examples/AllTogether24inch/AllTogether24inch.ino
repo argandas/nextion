@@ -18,6 +18,13 @@ Nextion myNextion(nextion, 9600); //create a Nextion object named myNextion usin
 boolean button1State;
 boolean button2State;
 
+// ------------------EV-PG-BT-TY-END
+String eventP0B1R = "65 00 01 00 FF FF FF"; // Event: Page 0, Button 1, Release
+String eventP0B2R = "65 00 02 00 FF FF FF"; // Event: Page 0, Button 2, Release
+
+int led1 = 13;
+int led2 = 12;
+
 // sensor "progress" bar
 int x = 161;
 int y = 198;
@@ -28,19 +35,27 @@ int old_sensor_value = 0;
 
 void setup() {
   Serial.begin(9600);
+  pinMode(led1, OUTPUT);
+  pinMode(led2, OUTPUT);
   myNextion.init();
-
 }
 
 void loop() {
 
   String message = myNextion.listen();
 
-  if (message == "65 0 1 0 ffff ffff ffff") {
-    myNextion.buttonToggle(button1State, "b0", 0, 2);
+  if (message != "") { // if a message is received...
+    Serial.println(message); //...print it out
   }
-  if (message == "65 0 2 0 ffff ffff ffff") {
+
+  if (message == eventP0B1R) {
+    myNextion.buttonToggle(button1State, "b0", 0, 2);
+    digitalWrite(led1, button1State);
+  }
+
+  if (message == eventP0B2R) {
     myNextion.buttonToggle(button2State, "b1", 0, 2);
+    digitalWrite(led2, button2State);
   }
 
   int sensor = 0;
