@@ -230,11 +230,11 @@ String Nextion::listen(unsigned long timeout){//returns generic
     }
 
     // Parse data as HEX string
-    for(int i = 0; i < dataLen; i++) 
+    for(int i = 0; i <= dataLen; i++) 
     {
       if(buff[i] < 0x10) temp += "0";     // Append 0 for 2 digits HEX string
       temp += String(buff[i], HEX);
-      if (i < (dataLen - 1)) temp += " "; // Add separator
+      if (i < dataLen) temp += " "; // Add separator
     }
   }
   temp.toUpperCase();
